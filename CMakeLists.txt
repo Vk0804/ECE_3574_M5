@@ -71,7 +71,7 @@ add_test(NAME student_tests COMMAND student_tests)
 set_tests_properties(student_tests PROPERTIES TIMEOUT 60 ENVIRONMENT QT_QPA_PLATFORM=offscreen)
 
 
-option(AIWS_BUILD_IPC_TESTS "Build IPC tests" OFF)
+option(AIWS_BUILD_IPC_TESTS "Build IPC tests" ON)
 
 if(AIWS_BUILD_IPC_TESTS)
     add_executable(ipc_tests tests/ipc_test.cpp)

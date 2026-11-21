@@ -21,6 +21,14 @@
 #include <chrono>
 #include <thread>
 
+namespace {
+bool exit_callback_called = false;
+
+void test_exit_callback(QWidget*) {
+    exit_callback_called = true;
+}
+}
+
 class IpcTests : public QObject {
     Q_OBJECT
 
@@ -325,12 +333,9 @@ private slots:
 
     // Test 9: Exit button invokes the registered callback.
     void exitButtonCallsCallback() {
-        bool callback_called = false;
+        exit_callback_called = false;
 
-        window_->set_exit_callback(
-            [&callback_called](QWidget*) {
-                callback_called = true;
-            });
+        window_->set_exit_callback(&test_exit_callback);
 
         QPushButton* exit_button =
             window_->findChild<QPushButton*>("");
@@ -347,7 +352,7 @@ private slots:
 
         QTest::mouseClick(exit_button, Qt::LeftButton);
 
-        QVERIFY(callback_called);
+        QVERIFY(exit_callback_called);
     }
 
     // Test 10: Server removes its socket when stopped.

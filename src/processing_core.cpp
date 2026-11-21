@@ -55,21 +55,51 @@ std::string ProcessingCore::normalize(const std::string& text) {
 }
 
 void ProcessingCore::rebuild(const Workspace& workspace) {
+    (void)rebuild(workspace, []() { return false; });
+}
+
+bool ProcessingCore::rebuild(
+    const Workspace& workspace,
+    const std::function<bool()>& should_cancel) {
+
     std::unordered_set<std::string> document_ids;
     std::vector<Chunk> next_chunks;
-    for (std::size_t order = 0; order < workspace.documents().size(); ++order) {
-        const auto& doc = workspace.documents()[order];
-        if (!document_ids.insert(doc.id()).second) {
-            throw std::invalid_argument("duplicate document id: " + doc.id());
+
+    for (std::size_t order = 0;
+         order < workspace.documents().size();
+         ++order) {
+
+        // Stop before processing another document if cancellation was requested.
+        if (should_cancel && should_cancel()) {
+            return false;
         }
+
+        const auto& doc = workspace.documents()[order];
+
+        if (!document_ids.insert(doc.id()).second) {
+            throw std::invalid_argument(
+                "duplicate document id: " + doc.id());
+        }
+
         auto produced = impl_->chunker->chunk(doc, order);
-        next_chunks.insert(next_chunks.end(),
-                           std::make_move_iterator(produced.begin()),
-                           std::make_move_iterator(produced.end()));
+
+        next_chunks.insert(
+            next_chunks.end(),
+            std::make_move_iterator(produced.begin()),
+            std::make_move_iterator(produced.end()));
     }
+
+    // Do not publish an incomplete corpus.
+    if (should_cancel && should_cancel()) {
+        return false;
+    }
+
     CorpusIndex next_index(next_chunks);
+
     impl_->chunks = std::move(next_chunks);
     impl_->index = std::move(next_index);
+
+    return true;
 }
 
 const std::vector<Chunk>& ProcessingCore::chunks() const noexcept { return impl_->chunks; }

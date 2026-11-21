@@ -27,6 +27,9 @@ public:
                      int delay_ms,
                      std::size_t workspace_version);
 
+    void cancel_build();
+    void shutdown();
+    
     bool is_building() const noexcept;
 
     std::unique_ptr<ProcessingCore> take_result();
@@ -37,13 +40,29 @@ signals:
     void build_finished(bool success, const QString& error);
 
 private:
+struct Request{
+    Workspace workspace;
+    int delay_ms{0};
+    std::size_t workspace_version{0};
+    std::size_t generation{0};
+
+};
     struct Completion;
 
-    void handle_completion(std::shared_ptr<Completion> completion);
+    void worker_loop();
 
+    void handle_completion(std::shared_ptr<Completion> completion);
+    bool request_cancelled(std::size_t generation) const;
+
+    mutable std::mutex mutex_;
+    std::condition_variable condition_;
+    std::optional<Request> pending_request_;
+    std::size_t generation_{0};
+    bool stopping_{false};
+
+    //GUI thread only state
     std::thread worker_;
     bool building_{false};
-
     std::unique_ptr<ProcessingCore> result_;
     std::size_t result_version_{0};
 };

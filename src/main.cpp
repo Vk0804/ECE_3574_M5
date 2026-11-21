@@ -10,6 +10,36 @@
 #include <string>
 #include <unistd.h>
 
+namespace {
+
+aiws::IpcServer* exit_server = nullptr;
+
+void confirm_exit(QWidget* parent) {
+    auto* window =
+        qobject_cast<aiws::gui::MainWindow*>(parent);
+
+    if (window == nullptr) {
+        return;
+    }
+
+    const QMessageBox::StandardButton answer =
+        QMessageBox::question(
+            parent,
+            "Exit AI Workspace",
+            "Are you sure you want to exit?",
+            QMessageBox::Yes | QMessageBox::No,
+            QMessageBox::No);
+
+    if (answer == QMessageBox::Yes) {
+        if (exit_server != nullptr) {
+            exit_server->stop();
+        }
+
+        window->request_exit_after_build();
+    }
+}
+
+}
 
 int main(int argc, char* argv[]) {
    
@@ -72,20 +102,8 @@ int main(int argc, char* argv[]) {
               << socket_path << '\n';
 
     // Register the ExitCallback.
-    window.set_exit_callback([&server, &window](QWidget* parent) {
-        const QMessageBox::StandardButton answer =
-            QMessageBox::question(
-                parent,
-                "Exit AI Workspace",
-                "Are you sure you want to exit?",
-                QMessageBox::Yes | QMessageBox::No,
-                QMessageBox::No);
-
-        if (answer == QMessageBox::Yes) {
-            server.stop();
-            window.request_exit_after_build();
-        }
-    });
+    exit_server = &server;
+    window.set_exit_callback(&confirm_exit);
 
     // Show the window and run the event loop.
     window.show();

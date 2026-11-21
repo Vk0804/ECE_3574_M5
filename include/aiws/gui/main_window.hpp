@@ -1,7 +1,6 @@
 #pragma once
 
 #include <QMainWindow>
-#include <functional>
 
   
 #include "aiws/build_manager.hpp"
@@ -39,7 +38,7 @@ public:
      * exit. Declining the confirmation leaves the running application and its
      * current state unchanged.
      */
-    using ExitCallback = std::function<void(QWidget* parent)>;
+    using ExitCallback = void (*)(QWidget* parent);
     
     /**
      * @brief Constructs the main AI Workspace application window.
