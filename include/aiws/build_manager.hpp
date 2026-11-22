@@ -8,7 +8,10 @@
 #include <QString>
 
 #include <cstddef>
+#include <condition_variable>
 #include <memory>
+#include <mutex>
+#include <optional>
 #include <thread>
 
 namespace aiws {

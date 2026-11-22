@@ -2,6 +2,8 @@
 
 #include <QMainWindow>
 
+#include <memory>
+
   
 #include "aiws/build_manager.hpp"
 #include "aiws/processing_core.hpp"
@@ -46,6 +48,8 @@ public:
      */
     explicit MainWindow(QWidget* parent = nullptr);
 
+        ~MainWindow() override;
+
     /**
      * @brief Registers the callback invoked when the user requests Exit.
      * @param callback Function pointer to invoke for the Exit action. A null
@@ -55,7 +59,7 @@ public:
 
     void request_exit_after_build();
 
-    // ---- M4 required public API (see specification, Section 5) ----------
+    // ---- M5 required public API (see specification, Section 5) ----------
 
     /**
      * @brief Adds the file at path exactly as the Add Document action does.
@@ -70,7 +74,7 @@ public:
     void set_build_delay_ms(int ms_per_document);
 
 
-    // Everything below this line is the M3 design. In M4 it is yours to
+    // Everything below this line is the M3 design. In M5 it is yours to
     // change: add, remove, or redesign private members, slots, and helpers.
 
 private slots:
@@ -135,6 +139,19 @@ private slots:
     void on_build_finished(bool success, const QString& error);
 
 private:
+
+    class State;
+    class ReadyState;
+    class BuildingState;
+    class ExitingState;
+
+    friend class ReadyState;
+    friend class BuildingState;
+    friend class ExitingState;
+
+    void reset_workspace();
+
+    void transition_to(std::unique_ptr<State> next_state);
     /**
      * @brief Updates availability of actions that depend on current application state.
      */
@@ -157,12 +174,13 @@ private:
 
     Workspace workspace_;
     ProcessingCore processing_core_;
-    bool corpus_current_{false};
+        bool corpus_current_{false};
 
     std::size_t workspace_version_{0};
     int build_delay_ms_{0};
     ExitCallback exit_callback_{nullptr};
-    bool exit_pending_{false};
+
+    std::unique_ptr<State> state_;
 
     WorkspaceWidget* workspace_widget_{nullptr};
     SearchWidget* search_widget_{nullptr};

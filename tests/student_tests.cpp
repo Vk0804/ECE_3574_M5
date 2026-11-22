@@ -1,4 +1,4 @@
-// Your M4 tests (specification, Section 6).
+// Your M5 tests (specification, Section 6).
 
 #include "aiws/build_manager.hpp"
 #include "aiws/document.hpp"
@@ -43,6 +43,14 @@ class BuildManagerTests : public QObject {
     }
 
 private slots:
+
+    void shutdownWhenIdleCompletes() {
+        aiws::BuildManager manager;
+
+        manager.shutdown();
+
+        QVERIFY(!manager.is_building());
+    }
 
     void successfulBuild() {
         aiws::Workspace workspace;
@@ -112,6 +120,34 @@ private slots:
 
         QTRY_COMPARE_WITH_TIMEOUT(finished.count(), 1, 3000);
         QVERIFY(finished.takeFirst().at(0).toBool());
+    }
+
+        void cancelledBuildDoesNotBlockReplacement() {
+        aiws::Workspace workspace;
+        workspace.add_document(
+            aiws::Document("doc1", "test.txt", "alpha beta gamma"));
+
+        aiws::BuildManager manager;
+        QSignalSpy finished(
+            &manager, &aiws::BuildManager::build_finished);
+
+        // Start a build with a long simulated delay.
+        QVERIFY(manager.start_build(workspace, 2000, 1));
+
+        // Give the worker time to pick up the first request.
+        QTest::qWait(50);
+
+        // Cancel it and immediately submit a replacement.
+        manager.cancel_build();
+        QVERIFY(!manager.is_building());
+        QVERIFY(manager.start_build(workspace, 0, 2));
+
+        // The replacement must not wait for the obsolete build's delay.
+        QTRY_COMPARE_WITH_TIMEOUT(finished.count(), 1, 1000);
+
+        QVERIFY(finished.takeFirst().at(0).toBool());
+        QCOMPARE(manager.completed_version(), std::size_t(2));
+        QVERIFY(!manager.is_building());
     }
 
     void eventLoopRemainsResponsive() {

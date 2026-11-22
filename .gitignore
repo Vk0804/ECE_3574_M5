@@ -2,3 +2,8 @@ build-linux/
 build/
 *.o
 .DS_Store
+
+# M5 test and sanitizer build directories
+build_fault_cancel/
+build_fault_shutdown/
+build_tsan/

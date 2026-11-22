@@ -26,19 +26,276 @@
 #include <utility>
 #include <vector>
 #include <QApplication>
+#include <memory>
 
 
 namespace aiws::gui {
 
-    namespace {
+     namespace {
 void show_status(QLabel* label, const QString& message) {
     label->setText("Current status: " + message);
 }
 
 } 
 
-MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent), build_delay_ms_(0) {
+  class MainWindow::State {
+public:
+    virtual ~State() = default;
 
+    virtual void workspace_changed(MainWindow& window) = 0;
+    virtual void build_requested(MainWindow& window) = 0;
+    virtual void reset_requested(MainWindow& window) = 0;
+    virtual void exit_requested(MainWindow& window) = 0;
+
+    virtual void build_finished(
+        MainWindow& window,
+        bool success,
+        const QString& error) = 0;
+
+    virtual bool is_building() const noexcept = 0;
+    virtual void enter(MainWindow&) {}
+};
+
+class MainWindow::ReadyState final : public MainWindow::State {
+public:
+    void workspace_changed(MainWindow& window) override;
+    void build_requested(MainWindow& window) override;
+    void reset_requested(MainWindow& window) override;
+    void exit_requested(MainWindow& window) override;
+
+    void build_finished(
+        MainWindow& window,
+        bool success,
+        const QString& error) override;
+
+    bool is_building() const noexcept override;
+};
+
+class MainWindow::BuildingState final : public MainWindow::State {
+public:
+    void workspace_changed(MainWindow& window) override;
+    void build_requested(MainWindow& window) override;
+    void reset_requested(MainWindow& window) override;
+    void exit_requested(MainWindow& window) override;
+
+    void build_finished(
+        MainWindow& window,
+        bool success,
+        const QString& error) override;
+
+    bool is_building() const noexcept override;
+};
+
+class MainWindow::ExitingState final : public MainWindow::State {
+public:
+    void workspace_changed(MainWindow& window) override;
+    void build_requested(MainWindow& window) override;
+    void reset_requested(MainWindow& window) override;
+    void exit_requested(MainWindow& window) override;
+    void enter(MainWindow& window) override;
+
+    void build_finished(
+        MainWindow& window,
+        bool success,
+        const QString& error) override;
+
+    bool is_building() const noexcept override;
+};
+
+// ReadyState
+
+void MainWindow::ReadyState::workspace_changed(MainWindow& window) {
+    window.invalidate_corpus();
+}
+
+void MainWindow::ReadyState::build_requested(MainWindow& window) {
+    if (window.workspace_.documents().empty()) {
+        show_status(
+            window.status_label_,
+            "Add documents before building the corpus.");
+        return;
+    }
+
+    window.clear_processing_outputs();
+    window.corpus_current_ = false;
+
+    window.workspace_widget_->set_corpus_status("Corpus: Building...");
+    show_status(window.status_label_, "Building corpus in background...");
+
+    const bool started = window.build_manager_.start_build(
+        window.workspace_,
+        window.build_delay_ms_,
+        window.workspace_version_);
+
+    if (!started) {
+        show_status(window.status_label_, "Could not start corpus build.");
+        window.workspace_widget_->set_corpus_status("Corpus: Not built");
+        return;
+    }
+
+    window.transition_to(std::make_unique<BuildingState>());
+}
+
+void MainWindow::ReadyState::reset_requested(MainWindow& window) {
+    window.reset_workspace();
+}
+
+void MainWindow::ReadyState::exit_requested(MainWindow& window) {
+    window.transition_to(std::make_unique<ExitingState>());
+}
+
+void MainWindow::ReadyState::build_finished(
+    MainWindow& window,
+    bool success,
+    const QString& error) {
+    (void)window;
+    (void)success;
+    (void)error;
+}
+
+bool MainWindow::ReadyState::is_building() const noexcept {
+    return false;
+}
+
+
+// BuildingState
+
+void MainWindow::BuildingState::workspace_changed(MainWindow& window) {
+    window.build_manager_.cancel_build();
+    window.invalidate_corpus();
+
+    show_status(window.status_label_, "Workspace changed. Build the corpus again.");
+    window.workspace_widget_->set_corpus_status("Corpus: Out of date");
+
+    window.transition_to(std::make_unique<ReadyState>());
+}
+
+void MainWindow::BuildingState::build_requested(MainWindow& window) {
+    show_status(window.status_label_, "A corpus build is already running.");
+}
+
+void MainWindow::BuildingState::reset_requested(MainWindow& window) {
+    window.build_manager_.cancel_build();
+    window.reset_workspace();
+
+    show_status(window.status_label_, "Workspace changed. Build the corpus again.");
+    window.workspace_widget_->set_corpus_status("Corpus: Out of date");
+
+    window.transition_to(std::make_unique<ReadyState>());
+}
+
+void MainWindow::BuildingState::exit_requested(MainWindow& window) {
+    window.transition_to(std::make_unique<ExitingState>());
+}
+
+void MainWindow::BuildingState::build_finished(
+    MainWindow& window,
+    bool success,
+    const QString& error) {
+
+    if (!success) {
+        show_status(window.status_label_, "Corpus build failed: " + error);
+        window.workspace_widget_->set_corpus_status("Corpus: Build failed");
+        window.corpus_current_ = false;
+        window.transition_to(std::make_unique<ReadyState>());
+        return;
+    }
+
+    // Reject a result if the workspace changed while it was building.
+    if (window.build_manager_.completed_version() !=
+        window.workspace_version_) {
+
+        (void)window.build_manager_.take_result();
+
+        show_status(
+            window.status_label_,
+            "Workspace changed. Build the corpus again.");
+        window.workspace_widget_->set_corpus_status("Corpus: Out of date");
+        window.corpus_current_ = false;
+        window.transition_to(std::make_unique<ReadyState>());
+        return;
+    }
+
+    auto completed_core = window.build_manager_.take_result();
+
+    if (!completed_core) {
+        show_status(
+            window.status_label_,
+            "Corpus build returned no result.");
+        window.corpus_current_ = false;
+        window.transition_to(std::make_unique<ReadyState>());
+        return;
+    }
+
+    window.processing_core_ = std::move(*completed_core);
+    window.corpus_current_ = true;
+
+    window.clear_processing_outputs();
+
+    window.workspace_widget_->set_corpus_status(
+        QString("Corpus: %1 chunks")
+            .arg(window.processing_core_.chunk_count()));
+
+    show_status(window.status_label_, "Corpus built successfully.");
+    window.transition_to(std::make_unique<ReadyState>());
+}
+
+bool MainWindow::BuildingState::is_building() const noexcept {
+    return true;
+}
+
+
+// ExitingState
+
+void MainWindow::ExitingState::enter(MainWindow& window) {
+    window.build_manager_.shutdown();
+    QApplication::quit();
+}
+
+void MainWindow::ExitingState::workspace_changed(MainWindow& window) {
+    (void)window;
+}
+
+void MainWindow::ExitingState::build_requested(MainWindow& window) {
+    (void)window;
+}
+
+void MainWindow::ExitingState::reset_requested(MainWindow& window) {
+    (void)window;
+}
+
+void MainWindow::ExitingState::exit_requested(MainWindow& window) {
+    (void)window;
+}
+
+void MainWindow::ExitingState::build_finished(
+    MainWindow& window,
+    bool success,
+    const QString& error) {
+    (void)window;
+    (void)success;
+    (void)error;
+}
+
+bool MainWindow::ExitingState::is_building() const noexcept {
+    return false;
+}
+
+MainWindow::~MainWindow() {
+    build_manager_.shutdown();
+    state_.reset();
+}
+
+void MainWindow::transition_to(std::unique_ptr<State> next_state) {
+    state_ = std::move(next_state);
+    state_->enter(*this);
+    update_action_states();
+}
+
+MainWindow::MainWindow(QWidget* parent)
+    : QMainWindow(parent),
+      build_delay_ms_(0),
+      state_(std::make_unique<ReadyState>()) {
     
     setWindowTitle("AI Workspace");
     resize(900, 900);
@@ -104,7 +361,7 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent), build_delay_ms_(0
     connect(reset_button_, &QPushButton::clicked, this, &MainWindow::reset_application);
     connect(exit_button_, &QPushButton::clicked, this, &MainWindow::exit_application);
 
-    //M4 
+    //M5 
     connect(&build_manager_, &BuildManager::build_finished,
         this, &MainWindow::on_build_finished);
 
@@ -117,11 +374,7 @@ void MainWindow::set_exit_callback(ExitCallback callback) noexcept {
 }
 
 void MainWindow::request_exit_after_build() {
-    exit_pending_ = true;
-
-    if (!build_manager_.is_building()) {
-        QApplication::quit();
-    }
+    state_->exit_requested(*this);
 }
 
 void MainWindow::add_document() {
@@ -136,7 +389,7 @@ void MainWindow::add_document() {
     }
 }
 
-// M4 
+// M5 
 bool MainWindow::add_document_file(const QString& path) {
     QFileInfo info(path);
     QFile file(info.absoluteFilePath());
@@ -154,45 +407,15 @@ bool MainWindow::add_document_file(const QString& path) {
 
     workspace_widget_->add_document(info.fileName());
 
-    ++workspace_version_;
-    invalidate_corpus();
+++workspace_version_;
 
-    show_status(status_label_, "Added " + info.fileName());
-
+show_status(status_label_, "Added " + info.fileName());
+state_->workspace_changed(*this);
     return true;
 }
 
 void MainWindow::build_corpus() {
-    if (workspace_.documents().empty()) {
-        show_status(status_label_, "Add documents before building the corpus.");
-        return;
-    }
-
-    if (build_manager_.is_building()) {
-        show_status(status_label_, "Corpus build already in progress.");
-        return;
-    }
-
-    clear_processing_outputs();
-    corpus_current_ = false;
-
-    workspace_widget_->set_corpus_status("Corpus: Building...");
-    show_status(status_label_, "Building corpus in background...");
-    update_action_states();
-
-    const bool started = build_manager_.start_build(
-        workspace_,
-        build_delay_ms_,
-        workspace_version_);
-
-    if (!started) {
-        show_status(status_label_, "Could not start corpus build.");
-        workspace_widget_->set_corpus_status("Corpus: Not built");
-        //update_action_states();
-    }
-    else {
-        update_action_states();
-    }
+    state_->build_requested(*this);
 }
 
 //includes name and text
@@ -252,6 +475,10 @@ void MainWindow::term_inspection_requested(const QString& term,
 
 //Clear from all wdigets 
 void MainWindow::reset_application() {
+    state_->reset_requested(*this);
+}
+
+void MainWindow::reset_workspace() {
     workspace_.clear();
     ++workspace_version_;
 
@@ -275,6 +502,7 @@ void MainWindow::reset_application() {
 
     update_action_states();
 }
+
 void MainWindow::exit_application() {
     if (exit_callback_ != nullptr) {
         exit_callback_(this);
@@ -284,7 +512,7 @@ void MainWindow::exit_application() {
 //enabling buttons altogether based on corpus state
 void MainWindow::update_action_states() {
     const bool has_query = search_widget_->has_query();
-    const bool is_building = build_manager_.is_building();
+    const bool is_building = state_->is_building();
 
     workspace_widget_->set_build_corpus_enabled(
         !workspace_.documents().empty() && !is_building);
@@ -308,51 +536,9 @@ void MainWindow::clear_processing_outputs() {
     context_widget_->clear_context();
 }
 
-// M4 Implemnetataion 
+// M5 Implementation 
 void MainWindow::on_build_finished(bool success, const QString& error) {
-    if (exit_pending_) {
-        QApplication::quit();
-        return;
-    }
-    
-    if (!success) {
-        show_status(status_label_, "Corpus build failed: " + error);
-        workspace_widget_->set_corpus_status("Corpus: Build failed");
-        corpus_current_ = false;
-        update_action_states();
-        return;
-    }
-
-    // Reject a result if the workspace changed while it was building.
-   if (build_manager_.completed_version() != workspace_version_) {
-    (void)build_manager_.take_result();
-
-    show_status(status_label_, "Workspace changed. Build the corpus again.");
-    workspace_widget_->set_corpus_status("Corpus: Out of date");
-    corpus_current_ = false;
-    update_action_states();
-    return;
-}
-
-    auto completed_core = build_manager_.take_result();
-
-    if (!completed_core) {
-        show_status(status_label_, "Corpus build returned no result.");
-        corpus_current_ = false;
-        update_action_states();
-        return;
-    }
-
-    processing_core_ = std::move(*completed_core);
-    corpus_current_ = true;
-
-    clear_processing_outputs();
-
-    workspace_widget_->set_corpus_status(
-        QString("Corpus: %1 chunks").arg(processing_core_.chunk_count()));
-
-    show_status(status_label_, "Corpus built successfully.");
-    update_action_states();
+    state_->build_finished(*this, success, error);
 }
 
 void MainWindow::set_build_delay_ms(int ms_per_document) {
