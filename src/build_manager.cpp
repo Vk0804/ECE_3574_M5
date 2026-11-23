@@ -195,15 +195,9 @@ void BuildManager::worker_loop() {
 
             if (!request_cancelled(request.generation)) {
                 auto core = std::make_unique<ProcessingCore>();
+                core->rebuild(request.workspace);
 
-                const bool completed = core->rebuild(
-                    request.workspace,
-                    [this, &request]() {
-                        return request_cancelled(request.generation);
-                    });
-
-                if (completed &&
-                    !request_cancelled(request.generation)) {
+                if (!request_cancelled(request.generation)) {
                     completion->result = std::move(core);
                     completion->success = true;
                 }

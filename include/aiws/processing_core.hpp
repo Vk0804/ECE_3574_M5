@@ -6,7 +6,7 @@
 #include "aiws/retrieval_strategy.hpp"
 #include "aiws/workspace.hpp"
 
-#include <functional>
+
 #include <cstddef>
 #include <memory>
 #include <string>
@@ -34,8 +34,8 @@ public:
     static std::string normalize(const std::string& text);
 
     void rebuild(const Workspace& workspace);
-    bool rebuild(const Workspace& workspace,
-             const std::function<bool()>& should_cancel);
+  /* bool rebuild(const Workspace& workspace,
+             const std::function<bool()>& should_cancel);*/
     const std::vector<Chunk>& chunks() const noexcept;
     std::size_t chunk_count() const noexcept;
 
