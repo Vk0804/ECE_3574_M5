@@ -1,9 +1,41 @@
-build-linux/
-build/
-*.o
-.DS_Store
 
-# M5 test and sanitizer build directories
-build_fault_cancel/
-build_fault_shutdown/
-build_tsan/
+# CMake build directories
+build/
+build_*/
+cmake-build-*/
+
+# CMake generated files
+CMakeFiles/
+CMakeCache.txt
+cmake_install.cmake
+Makefile
+compile_commands.json
+CTestTestfile.cmake
+Testing/
+
+# Qt generated files
+.qt/
+*_autogen/
+moc_*.cpp
+ui_*.h
+qrc_*.cpp
+
+# Compiled object and executable files
+*.o
+*.obj
+*.a
+*.lib
+*.so
+*.dll
+*.exe
+*.bin
+
+# IDE files
+.vscode/
+.idea/
+*.user
+*.suo
+
+# OS files
+.DS_Store
+Thumbs.db
