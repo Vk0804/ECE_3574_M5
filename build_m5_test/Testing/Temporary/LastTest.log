@@ -1,0 +1,90 @@
+Start testing: Nov 23 22:36 AST
+----------------------------------------------------------
+1/2 Testing: student_tests
+1/2 Test: student_tests
+Command: "/workspace/build_m5_test/student_tests"
+Directory: /workspace/build_m5_test
+"student_tests" start time: Nov 23 22:36 AST
+Output:
+----------------------------------------------------------
+QStandardPaths: XDG_RUNTIME_DIR not set, defaulting to '/tmp/runtime-root'
+********* Start testing of BuildManagerTests *********
+Config: Using QtTest library 6.4.2, Qt 6.4.2 (x86_64-little_endian-lp64 shared (dynamic) release build; by GCC 13.2.0), ubuntu 24.04
+PASS   : BuildManagerTests::initTestCase()
+PASS   : BuildManagerTests::shutdownWhenIdleCompletes()
+PASS   : BuildManagerTests::successfulBuild()
+PASS   : BuildManagerTests::duplicateDocumentCausesFailure()
+PASS   : BuildManagerTests::rejectsConcurrentBuild()
+PASS   : BuildManagerTests::cancelledBuildDoesNotBlockReplacement()
+PASS   : BuildManagerTests::eventLoopRemainsResponsive()
+PASS   : BuildManagerTests::repeatedBuildsWork()
+PASS   : BuildManagerTests::unreadableFileIsRejected()
+PASS   : BuildManagerTests::addingDocumentDuringBuildRejectsStaleResult()
+PASS   : BuildManagerTests::resetDuringBuildRejectsStaleResult()
+PASS   : BuildManagerTests::windowCanBeDestroyedDuringBuild()
+PASS   : BuildManagerTests::r1_allBuildsShareOneWorkerThread()
+PASS   : BuildManagerTests::r2_startBuildDoesNotWaitForTheBuild()
+PASS   : BuildManagerTests::r2_outdatedRequestIsNeverBuilt()
+PASS   : BuildManagerTests::r3_cancelStopsWithinAboutOneDocument()
+PASS   : BuildManagerTests::r3_cancelledBuildNeverBecomesCurrent()
+PASS   : BuildManagerTests::r4_shutdownDuringBuildIsPrompt()
+PASS   : BuildManagerTests::state_readyBuildEntersBuildingThenReturnsToReady()
+PASS   : BuildManagerTests::state_buildingRejectsSecondBuildRequest()
+PASS   : BuildManagerTests::state_buildingWorkspaceChangeCancelsAndReturnsToReady()
+PASS   : BuildManagerTests::state_buildingResetCancelsAndReturnsToReady()
+PASS   : BuildManagerTests::state_exitDuringBuildIsPromptAndIgnoresLaterEvents()
+PASS   : BuildManagerTests::state_exitWhenIdleIsPrompt()
+PASS   : BuildManagerTests::cleanupTestCase()
+Totals: 25 passed, 0 failed, 0 skipped, 0 blacklisted, 3987ms
+********* Finished testing of BuildManagerTests *********
+<end of output>
+Test time =   4.10 sec
+----------------------------------------------------------
+Test Passed.
+"student_tests" end time: Nov 23 22:36 AST
+"student_tests" time elapsed: 00:00:04
+----------------------------------------------------------
+
+2/2 Testing: ipc_tests
+2/2 Test: ipc_tests
+Command: "/workspace/build_m5_test/ipc_tests"
+Directory: /workspace/build_m5_test
+"ipc_tests" start time: Nov 23 22:36 AST
+Output:
+----------------------------------------------------------
+QStandardPaths: XDG_RUNTIME_DIR not set, defaulting to '/tmp/runtime-root'
+********* Start testing of IpcTests *********
+Config: Using QtTest library 6.4.2, Qt 6.4.2 (x86_64-little_endian-lp64 shared (dynamic) release build; by GCC 13.2.0), ubuntu 24.04
+PASS   : IpcTests::initTestCase()
+QWARN  : IpcTests::serverStarts() This plugin does not support propagateSizeHints()
+PASS   : IpcTests::serverStarts()
+QWARN  : IpcTests::validDocumentRequest() This plugin does not support propagateSizeHints()
+PASS   : IpcTests::validDocumentRequest()
+QWARN  : IpcTests::missingDocumentRejected() This plugin does not support propagateSizeHints()
+PASS   : IpcTests::missingDocumentRejected()
+QWARN  : IpcTests::filenameWithSpaces() This plugin does not support propagateSizeHints()
+PASS   : IpcTests::filenameWithSpaces()
+QWARN  : IpcTests::utf8Filename() This plugin does not support propagateSizeHints()
+PASS   : IpcTests::utf8Filename()
+QWARN  : IpcTests::newlineFilename() This plugin does not support propagateSizeHints()
+PASS   : IpcTests::newlineFilename()
+QWARN  : IpcTests::fragmentedRequest() This plugin does not support propagateSizeHints()
+PASS   : IpcTests::fragmentedRequest()
+QWARN  : IpcTests::buildCorpusButton() This plugin does not support propagateSizeHints()
+PASS   : IpcTests::buildCorpusButton()
+QWARN  : IpcTests::exitButtonCallsCallback() This plugin does not support propagateSizeHints()
+PASS   : IpcTests::exitButtonCallsCallback()
+QWARN  : IpcTests::serverStops() This plugin does not support propagateSizeHints()
+PASS   : IpcTests::serverStops()
+PASS   : IpcTests::cleanupTestCase()
+Totals: 12 passed, 0 failed, 0 skipped, 0 blacklisted, 1384ms
+********* Finished testing of IpcTests *********
+<end of output>
+Test time =   1.45 sec
+----------------------------------------------------------
+Test Passed.
+"ipc_tests" end time: Nov 23 22:36 AST
+"ipc_tests" time elapsed: 00:00:01
+----------------------------------------------------------
+
+End testing: Nov 23 22:36 AST
